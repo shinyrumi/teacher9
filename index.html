@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>에니어그램 교사 유형 탐색기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral (Amber) -->
+    <!-- Application Structure Plan: 이 애플리케이션은 사용자가 9가지 에니어그램 유형을 비선형적으로 자유롭게 탐색할 수 있도록 설계되었습니다. 상단의 유형 선택 버튼 그리드를 통해 즉각적으로 원하는 정보에 접근할 수 있습니다. 중앙 콘텐츠 영역은 선택된 유형의 상세 정보(동기, 강점, 어려움)와 함께, 각 유형의 성향을 시각적으로 비교할 수 있는 레이더 차트를 동적으로 표시합니다. 이러한 구조는 정적인 텍스트를 탐색하는 것보다 훨씬 직관적이고 매력적인 사용자 경험을 제공하여 정보의 이해와 기억을 돕기 위해 채택되었습니다. -->
+    <!-- Visualization & Content Choices: 보고서의 질적 데이터를 효과적으로 전달하기 위해 각 유형의 주요 성향(구조, 관계, 성취, 창의, 안정)을 5개 축으로 설정하고, 이를 Chart.js의 레이더 차트로 시각화했습니다. 이를 통해 사용자는 각 유형의 복합적인 특성을 한눈에 파악하고 유형 간의 차이를 직관적으로 비교할 수 있습니다. 상세 설명은 강점과 어려움을 명확히 구분하는 2단 레이아웃으로 제시하여 가독성을 높였습니다. 모든 상호작용은 Vanilla JS로 구현되었습니다. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .type-button.active {
+            background-color: #f59e0b; /* amber-500 */
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 4px 14px 0 rgb(0 0 0 / 10%);
+        }
+    </style>
+</head>
+<body class="bg-amber-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-amber-900">에니어그램으로 알아보는 교사 유형</h1>
+            <p class="mt-2 text-gray-600">아래에서 에니어그램 유형을 선택하여 교사의 동기와 행동 패턴을 탐색해보세요.</p>
+        </header>
+
+        <nav class="mb-8">
+            <div id="type-selector" class="grid grid-cols-3 md:grid-cols-9 gap-2 md:gap-3 max-w-3xl mx-auto">
+            </div>
+        </nav>
+
+        <main id="content-display" class="bg-white p-6 md:p-8 rounded-2xl shadow-lg min-h-[500px] transition-opacity duration-500 ease-in-out opacity-0">
+            <div id="type-content">
+                <div class="text-center mb-6">
+                    <h2 id="type-title" class="text-2xl md:text-3xl font-bold text-amber-800"></h2>
+                    <p id="type-motive" class="mt-2 text-gray-500 text-lg"></p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8 items-center">
+                    <div class="chart-container">
+                        <canvas id="type-chart"></canvas>
+                    </div>
+                    <div>
+                        <div class="mb-6">
+                            <h3 class="text-xl font-semibold mb-3 text-green-700">✨ 강점</h3>
+                            <ul id="type-strengths" class="list-disc list-inside space-y-2 text-gray-700"></ul>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-semibold mb-3 text-red-700">⚠️ 어려움</h3>
+                            <ul id="type-challenges" class="list-disc list-inside space-y-2 text-gray-700"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="text-center mt-8 text-sm text-gray-500">
+            <p>&copy; 2025 에니어그램 교사 유형 분석. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const teacherTypes = [
+                {
+                    id: 1,
+                    name: "개혁가",
+                    motive: "올바르고 완벽하게 행동하려는 욕구",
+                    strengths: ["체계적이고 공정함", "꼼꼼한 피드백", "도덕적 책임감"],
+                    challenges: ["완벽주의", "비판적 태도"],
+                    chartData: [5, 2, 3, 1, 5] 
+                },
+                {
+                    id: 2,
+                    name: "조력가",
+                    motive: "사랑받고 필요하다고 느끼려는 욕구",
+                    strengths: ["따뜻하고 배려심 깊음", "헌신적인 지원"],
+                    challenges: ["과도한 개입", "인정받고 싶은 욕구"],
+                    chartData: [2, 5, 2, 3, 3] 
+                },
+                {
+                    id: 3,
+                    name: "성취가",
+                    motive: "가치 있고 성공한 사람으로 보이고 싶은 욕구",
+                    strengths: ["에너지 넘치는 리더", "명확한 목표 제시", "실용적인 교육"],
+                    challenges: ["성과에 대한 집착", "이미지 관리"],
+                    chartData: [3, 3, 5, 4, 3] 
+                },
+                {
+                    id: 4,
+                    name: "예술가",
+                    motive: "특별하고 독특한 존재가 되고 싶은 욕구",
+                    strengths: ["창의적인 수업", "개별적 이해"],
+                    challenges: ["감정의 기복", "비현실적인 기대"],
+                    chartData: [1, 4, 2, 5, 2] 
+                },
+                {
+                    id: 5,
+                    name: "탐구자",
+                    motive: "유능하고 지식이 풍부해지고 싶은 욕구",
+                    strengths: ["전문적 지식", "독립적인 사고 유도", "객관적이고 이성적"],
+                    challenges: ["거리감", "정보 전달 위주"],
+                    chartData: [4, 1, 4, 2, 4] 
+                },
+                {
+                    id: 6,
+                    name: "충성가",
+                    motive: "안전하고 믿음직스럽다고 느끼고 싶은 욕구",
+                    strengths: ["안정적인 환경 조성", "책임감과 성실함", "위기에 강함"],
+                    challenges: ["불안감", "과도한 조심성"],
+                    chartData: [4, 3, 2, 1, 5] 
+                },
+                {
+                    id: 7,
+                    name: "낙천가",
+                    motive: "즐겁고 신나는 경험을 하려는 욕구",
+                    strengths: ["에너지와 유머", "새로운 시도", "긍정적인 태도"],
+                    challenges: ["산만함", "어려운 주제 회피"],
+                    chartData: [2, 4, 4, 5, 1] 
+                },
+                {
+                    id: 8,
+                    name: "도전가",
+                    motive: "자신의 삶을 통제하고 보호하려는 욕구",
+                    strengths: ["강력한 리더십", "불의에 맞서 싸움", "직설적인 소통"],
+                    challenges: ["위압적인 태도", "감정의 소홀함"],
+                    chartData: [4, 2, 5, 2, 4] 
+                },
+                {
+                    id: 9,
+                    name: "화해자",
+                    motive: "평화와 조화를 유지하려는 욕구",
+                    strengths: ["온화하고 인내심 깊음", "모두의 의견 수렴", "갈등 관리"],
+                    challenges: ["수동적인 태도", "우유부단함"],
+                    chartData: [2, 5, 1, 3, 3] 
+                }
+            ];
+
+            const selector = document.getElementById('type-selector');
+            const contentDisplay = document.getElementById('content-display');
+            const typeTitle = document.getElementById('type-title');
+            const typeMotive = document.getElementById('type-motive');
+            const typeStrengths = document.getElementById('type-strengths');
+            const typeChallenges = document.getElementById('type-challenges');
+            const chartCanvas = document.getElementById('type-chart');
+            let typeChart;
+
+            function createButtons() {
+                teacherTypes.forEach(type => {
+                    const button = document.createElement('button');
+                    button.dataset.id = type.id;
+                    button.textContent = `유형 ${type.id}`;
+                    button.className = 'type-button w-full text-center py-2 px-1 rounded-lg bg-white shadow-md hover:bg-amber-100 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-400';
+                    selector.appendChild(button);
+                });
+            }
+            
+            function updateContent(typeId) {
+                const typeData = teacherTypes.find(t => t.id === parseInt(typeId));
+                if (!typeData) return;
+
+                contentDisplay.style.opacity = 0;
+
+                setTimeout(() => {
+                    typeTitle.textContent = `유형 ${typeData.id}: ${typeData.name}`;
+                    typeMotive.textContent = `"${typeData.motive}"`;
+                    
+                    typeStrengths.innerHTML = typeData.strengths.map(s => `<li>${s}</li>`).join('');
+                    typeChallenges.innerHTML = typeData.challenges.map(c => `<li>${c}</li>`).join('');
+
+                    updateChart(typeData);
+                    
+                    document.querySelectorAll('.type-button').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.id === typeId);
+                    });
+
+                    contentDisplay.style.opacity = 1;
+                }, 300);
+            }
+
+            function initializeChart() {
+                const ctx = chartCanvas.getContext('2d');
+                typeChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['구조/체계', '관계/공감', '목표/성과', '창의/유연', '안정/책임'],
+                        datasets: [{
+                            label: '성향',
+                            data: [],
+                            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'rgba(245, 158, 11, 1)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgba(245, 158, 11, 1)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                angleLines: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                pointLabels: {
+                                    font: {
+                                        size: 12
+                                    },
+                                    color: '#4b5563'
+                                },
+                                suggestedMin: 0,
+                                suggestedMax: 5,
+                                ticks: {
+                                    stepSize: 1,
+                                    display: false
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+
+            function updateChart(typeData) {
+                typeChart.data.datasets[0].data = typeData.chartData;
+                typeChart.data.datasets[0].label = `${typeData.name} 성향`;
+                typeChart.update();
+            }
+
+            selector.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    const typeId = e.target.dataset.id;
+                    updateContent(typeId);
+                }
+            });
+
+            createButtons();
+            initializeChart();
+            updateContent('1');
+        });
+    </script>
+</body>
+</html>
